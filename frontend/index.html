@@ -170,57 +170,45 @@
         </p>
     </div>
 
-    <!-- Import Vapi Web SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.js"></script>
+    <!-- Import Vapi Web SDK - Official CDN -->
     <script>
-        // 🔑 REPLACE THESE WITH YOUR ACTUAL CREDENTIALS
-        const CONFIG = {
-            apiKey: "87d24af0-8019-44ed-9b4d-58f212ba6eaa",  // Get from Vapi dashboard
-            assistantId: "b1c156ec-9684-436f-add7-f0e7c93be851"    // Get from Vapi dashboard
-        };
+        var vapiInstance = null;
+        const apiKey = "87d24af0-8019-44ed-9b4d-58f212ba6eaa";  // Your Public API Key
+        const assistant = "b1c156ec-9684-436f-add7-f0e7c93be851";  // Your Assistant ID
+        const buttonConfig = {};  // Optional button configuration
 
-        // Initialize Vapi SDK with proper error handling
-        let vapi = null;
-        let initializationError = null;
+        (function (d, t) {
+            var g = document.createElement(t),
+                s = d.getElementsByTagName(t)[0];
+            g.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
+            g.defer = true;
+            g.async = true;
+            s.parentNode.insertBefore(g, s);
 
-        function initializeVapi() {
-            console.log('Initializing Vapi SDK...');
-            console.log('API Key:', CONFIG.apiKey);
-            console.log('Assistant ID:', CONFIG.assistantId);
-
-            if (typeof window.vapiSDK === 'undefined') {
-                initializationError = 'Vapi SDK failed to load. Check your internet connection.';
-                console.error(initializationError);
-                document.getElementById("status").className = "status error";
-                document.getElementById("status").textContent = "❌ Error: " + initializationError;
-                return;
-            }
-
-            try {
-                vapi = window.vapiSDK.run({
-                    apiKey: CONFIG.apiKey,
-                    assistant: CONFIG.assistantId
-                });
-                console.log('Vapi initialized successfully:', vapi);
-                
-                if (!vapi || typeof vapi.start !== 'function') {
-                    throw new Error('Vapi initialization returned invalid object');
+            g.onload = function () {
+                console.log('Vapi SDK loaded successfully');
+                try {
+                    vapiInstance = window.vapiSDK.run({
+                        apiKey: apiKey,
+                        assistant: assistant,
+                        config: buttonConfig
+                    });
+                    console.log('Vapi initialized successfully:', vapiInstance);
+                } catch (error) {
+                    console.error('Vapi initialization error:', error);
+                    document.getElementById("status").className = "status error";
+                    document.getElementById("status").textContent = "❌ Error: " + error.message;
                 }
-            } catch (error) {
-                initializationError = error.message;
-                console.error('Vapi initialization error:', error);
+            };
+
+            g.onerror = function() {
+                console.error('Vapi SDK failed to load');
                 document.getElementById("status").className = "status error";
-                document.getElementById("status").textContent = "❌ Error: " + error.message;
-            }
-        }
-
-        // Initialize when page loads
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeVapi);
-        } else {
-            initializeVapi();
-        }
-
+                document.getElementById("status").textContent = "❌ Error: Vapi SDK failed to load. Check your internet connection.";
+            };
+        })(document, "script");
+    </script>
+    <script>
         let isCalling = false;
 
         function toggleCall() {
@@ -228,17 +216,10 @@
             const status = document.getElementById("status");
 
             // Check if Vapi is properly initialized
-            if (initializationError) {
+            if (!vapiInstance) {
                 status.className = "status error";
-                status.textContent = "❌ Error: " + initializationError;
-                console.error('Cannot start call - initialization failed:', initializationError);
-                return;
-            }
-
-            if (!vapi) {
-                status.className = "status error";
-                status.textContent = "❌ Error: Vapi not initialized. Refresh the page.";
-                console.error('Cannot start call - vapi is null');
+                status.textContent = "❌ Error: Vapi not initialized. Wait for SDK to load or refresh the page.";
+                console.error('Cannot start call - vapiInstance is null');
                 return;
             }
 
@@ -246,7 +227,7 @@
                 // Start call
                 console.log('Starting call...');
                 try {
-                    vapi.start();
+                    vapiInstance.start();
                     button.textContent = "End";
                     button.className = "call-button end";
                     status.className = "status connecting";
@@ -269,7 +250,7 @@
             } else {
                 // End call
                 console.log('Ending call...');
-                vapi.stop();
+                vapiInstance.stop();
                 button.textContent = "Start";
                 button.className = "call-button start";
                 status.className = "status ended";
@@ -279,37 +260,39 @@
         }
 
         // Vapi event listeners
-        vapi.on("call-start", () => {
-            const status = document.getElementById("status");
-            status.className = "status connected";
-            status.textContent = "✅ Connected! Speak now...";
-        });
+        if (vapiInstance) {
+            vapiInstance.on("call-start", () => {
+                const status = document.getElementById("status");
+                status.className = "status connected";
+                status.textContent = "✅ Connected! Speak now...";
+            });
 
-        vapi.on("call-end", () => {
-            const button = document.getElementById("callButton");
-            const status = document.getElementById("status");
-            status.className = "status ended";
-            status.textContent = "📞 Call finished. Check backend for summary.";
-            button.textContent = "Start";
-            button.className = "call-button start";
-            isCalling = false;
-        });
+            vapiInstance.on("call-end", () => {
+                const button = document.getElementById("callButton");
+                const status = document.getElementById("status");
+                status.className = "status ended";
+                status.textContent = "📞 Call finished. Check backend for summary.";
+                button.textContent = "Start";
+                button.className = "call-button start";
+                isCalling = false;
+            });
 
-        vapi.on("error", (error) => {
-            const status = document.getElementById("status");
-            status.className = "status error";
-            status.textContent = "❌ Error: " + error.message;
-            console.error("Vapi error:", error);
-        });
+            vapiInstance.on("error", (error) => {
+                const status = document.getElementById("status");
+                status.className = "status error";
+                status.textContent = "❌ Error: " + error.message;
+                console.error("Vapi error:", error);
+            });
 
-        // Volume indicator (optional visual feedback)
-        vapi.on("speech-start", () => {
-            document.getElementById("volumeBar").style.width = "80%";
-        });
+            // Volume indicator (optional visual feedback)
+            vapiInstance.on("speech-start", () => {
+                document.getElementById("volumeBar").style.width = "80%";
+            });
 
-        vapi.on("speech-end", () => {
-            document.getElementById("volumeBar").style.width = "0%";
-        });
+            vapiInstance.on("speech-end", () => {
+                document.getElementById("volumeBar").style.width = "0%";
+            });
+        }
     </script>
 </body>
 </html>
