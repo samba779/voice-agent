@@ -179,29 +179,46 @@
             assistantId: "b1c156ec-9684-436f-add7-f0e7c93be851"    // Get from Vapi dashboard
         };
 
-        // Check if Vapi SDK loaded
-        if (typeof window.vapiSDK === 'undefined') {
-            console.error('Vapi SDK failed to load');
-            document.getElementById("status").className = "status error";
-            document.getElementById("status").textContent = "❌ Error: Vapi SDK failed to load. Check your internet connection.";
-        } else {
-            console.log('Vapi SDK loaded successfully');
+        // Initialize Vapi SDK with proper error handling
+        let vapi = null;
+        let initializationError = null;
+
+        function initializeVapi() {
+            console.log('Initializing Vapi SDK...');
             console.log('API Key:', CONFIG.apiKey);
             console.log('Assistant ID:', CONFIG.assistantId);
+
+            if (typeof window.vapiSDK === 'undefined') {
+                initializationError = 'Vapi SDK failed to load. Check your internet connection.';
+                console.error(initializationError);
+                document.getElementById("status").className = "status error";
+                document.getElementById("status").textContent = "❌ Error: " + initializationError;
+                return;
+            }
+
+            try {
+                vapi = window.vapiSDK.run({
+                    apiKey: CONFIG.apiKey,
+                    assistant: CONFIG.assistantId
+                });
+                console.log('Vapi initialized successfully:', vapi);
+                
+                if (!vapi || typeof vapi.start !== 'function') {
+                    throw new Error('Vapi initialization returned invalid object');
+                }
+            } catch (error) {
+                initializationError = error.message;
+                console.error('Vapi initialization error:', error);
+                document.getElementById("status").className = "status error";
+                document.getElementById("status").textContent = "❌ Error: " + error.message;
+            }
         }
 
-        // Initialize Vapi SDK
-        let vapi;
-        try {
-            vapi = window.vapiSDK.run({
-                apiKey: CONFIG.apiKey,
-                assistant: CONFIG.assistantId
-            });
-            console.log('Vapi initialized successfully');
-        } catch (error) {
-            console.error('Vapi initialization error:', error);
-            document.getElementById("status").className = "status error";
-            document.getElementById("status").textContent = "❌ Error: " + error.message;
+        // Initialize when page loads
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeVapi);
+        } else {
+            initializeVapi();
         }
 
         let isCalling = false;
@@ -209,6 +226,21 @@
         function toggleCall() {
             const button = document.getElementById("callButton");
             const status = document.getElementById("status");
+
+            // Check if Vapi is properly initialized
+            if (initializationError) {
+                status.className = "status error";
+                status.textContent = "❌ Error: " + initializationError;
+                console.error('Cannot start call - initialization failed:', initializationError);
+                return;
+            }
+
+            if (!vapi) {
+                status.className = "status error";
+                status.textContent = "❌ Error: Vapi not initialized. Refresh the page.";
+                console.error('Cannot start call - vapi is null');
+                return;
+            }
 
             if (!isCalling) {
                 // Start call
