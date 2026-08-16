@@ -179,11 +179,30 @@
             assistantId: "b1c156ec-9684-436f-add7-f0e7c93be851"    // Get from Vapi dashboard
         };
 
+        // Check if Vapi SDK loaded
+        if (typeof window.vapiSDK === 'undefined') {
+            console.error('Vapi SDK failed to load');
+            document.getElementById("status").className = "status error";
+            document.getElementById("status").textContent = "❌ Error: Vapi SDK failed to load. Check your internet connection.";
+        } else {
+            console.log('Vapi SDK loaded successfully');
+            console.log('API Key:', CONFIG.apiKey);
+            console.log('Assistant ID:', CONFIG.assistantId);
+        }
+
         // Initialize Vapi SDK
-        const vapi = window.vapiSDK.run({
-            apiKey: CONFIG.apiKey,
-            assistant: CONFIG.assistantId
-        });
+        let vapi;
+        try {
+            vapi = window.vapiSDK.run({
+                apiKey: CONFIG.apiKey,
+                assistant: CONFIG.assistantId
+            });
+            console.log('Vapi initialized successfully');
+        } catch (error) {
+            console.error('Vapi initialization error:', error);
+            document.getElementById("status").className = "status error";
+            document.getElementById("status").textContent = "❌ Error: " + error.message;
+        }
 
         let isCalling = false;
 
@@ -193,14 +212,31 @@
 
             if (!isCalling) {
                 // Start call
-                vapi.start();
-                button.textContent = "End";
-                button.className = "call-button end";
-                status.className = "status connecting";
-                status.textContent = "Connecting to assistant...";
-                isCalling = true;
+                console.log('Starting call...');
+                try {
+                    vapi.start();
+                    button.textContent = "End";
+                    button.className = "call-button end";
+                    status.className = "status connecting";
+                    status.textContent = "Connecting to assistant...";
+                    isCalling = true;
+                    
+                    // Add timeout for connection
+                    setTimeout(() => {
+                        if (status.textContent === "Connecting to assistant...") {
+                            status.className = "status error";
+                            status.textContent = "❌ Connection timeout. Check console for details.";
+                            console.error('Connection timeout - check Vapi credentials and assistant status');
+                        }
+                    }, 10000);
+                } catch (error) {
+                    console.error('Error starting call:', error);
+                    status.className = "status error";
+                    status.textContent = "❌ Error: " + error.message;
+                }
             } else {
                 // End call
+                console.log('Ending call...');
                 vapi.stop();
                 button.textContent = "Start";
                 button.className = "call-button start";
