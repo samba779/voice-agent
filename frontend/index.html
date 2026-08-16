@@ -194,6 +194,9 @@
                         config: buttonConfig
                     });
                     console.log('Vapi initialized successfully:', vapiInstance);
+                    
+                    // Set up event listeners immediately after initialization
+                    setupVapiEventListeners();
                 } catch (error) {
                     console.error('Vapi initialization error:', error);
                     document.getElementById("status").className = "status error";
@@ -211,6 +214,44 @@
     <script>
         let isCalling = false;
 
+        function setupVapiEventListeners() {
+            if (!vapiInstance) return;
+            
+            vapiInstance.on("call-start", function() {
+                console.log('Call started event received');
+                const status = document.getElementById("status");
+                status.className = "status connected";
+                status.textContent = "✅ Connected! Speak now...";
+            });
+
+            vapiInstance.on("call-end", function() {
+                console.log('Call ended event received');
+                const button = document.getElementById("callButton");
+                const status = document.getElementById("status");
+                status.className = "status ended";
+                status.textContent = "📞 Call finished. Check backend for summary.";
+                button.textContent = "Start";
+                button.className = "call-button start";
+                isCalling = false;
+            });
+
+            vapiInstance.on("error", function(error) {
+                console.error("Vapi error event:", error);
+                const status = document.getElementById("status");
+                status.className = "status error";
+                status.textContent = "❌ Error: " + (error.message || error);
+            });
+
+            // Volume indicator (optional visual feedback)
+            vapiInstance.on("speech-start", function() {
+                document.getElementById("volumeBar").style.width = "80%";
+            });
+
+            vapiInstance.on("speech-end", function() {
+                document.getElementById("volumeBar").style.width = "0%";
+            });
+        }
+
         function toggleCall() {
             const button = document.getElementById("callButton");
             const status = document.getElementById("status");
@@ -226,72 +267,46 @@
             if (!isCalling) {
                 // Start call
                 console.log('Starting call...');
+                status.className = "status connecting";
+                status.textContent = "Connecting to assistant...";
+                button.textContent = "End";
+                button.className = "call-button end";
+                isCalling = true;
+
+                // Use the assistant ID directly with start method
                 try {
-                    vapiInstance.start();
-                    button.textContent = "End";
-                    button.className = "call-button end";
-                    status.className = "status connecting";
-                    status.textContent = "Connecting to assistant...";
-                    isCalling = true;
-                    
-                    // Add timeout for connection
-                    setTimeout(() => {
-                        if (status.textContent === "Connecting to assistant...") {
-                            status.className = "status error";
-                            status.textContent = "❌ Connection timeout. Check console for details.";
-                            console.error('Connection timeout - check Vapi credentials and assistant status');
-                        }
-                    }, 10000);
+                    vapiInstance.start(assistant).then(function() {
+                        console.log('Call started successfully');
+                    }).catch(function(error) {
+                        console.error('Error starting call:', error);
+                        status.className = "status error";
+                        status.textContent = "❌ Error: " + (error.message || error);
+                        isCalling = false;
+                        button.textContent = "Start";
+                        button.className = "call-button start";
+                    });
                 } catch (error) {
-                    console.error('Error starting call:', error);
+                    console.error('Exception starting call:', error);
                     status.className = "status error";
                     status.textContent = "❌ Error: " + error.message;
+                    isCalling = false;
+                    button.textContent = "Start";
+                    button.className = "call-button start";
                 }
             } else {
                 // End call
                 console.log('Ending call...');
-                vapiInstance.stop();
-                button.textContent = "Start";
-                button.className = "call-button start";
-                status.className = "status ended";
-                status.textContent = "Call ended. Processing summary...";
-                isCalling = false;
+                try {
+                    vapiInstance.stop();
+                    button.textContent = "Start";
+                    button.className = "call-button start";
+                    status.className = "status ended";
+                    status.textContent = "Call ended. Processing summary...";
+                    isCalling = false;
+                } catch (error) {
+                    console.error('Error ending call:', error);
+                }
             }
-        }
-
-        // Vapi event listeners
-        if (vapiInstance) {
-            vapiInstance.on("call-start", () => {
-                const status = document.getElementById("status");
-                status.className = "status connected";
-                status.textContent = "✅ Connected! Speak now...";
-            });
-
-            vapiInstance.on("call-end", () => {
-                const button = document.getElementById("callButton");
-                const status = document.getElementById("status");
-                status.className = "status ended";
-                status.textContent = "📞 Call finished. Check backend for summary.";
-                button.textContent = "Start";
-                button.className = "call-button start";
-                isCalling = false;
-            });
-
-            vapiInstance.on("error", (error) => {
-                const status = document.getElementById("status");
-                status.className = "status error";
-                status.textContent = "❌ Error: " + error.message;
-                console.error("Vapi error:", error);
-            });
-
-            // Volume indicator (optional visual feedback)
-            vapiInstance.on("speech-start", () => {
-                document.getElementById("volumeBar").style.width = "80%";
-            });
-
-            vapiInstance.on("speech-end", () => {
-                document.getElementById("volumeBar").style.width = "0%";
-            });
         }
     </script>
 </body>
